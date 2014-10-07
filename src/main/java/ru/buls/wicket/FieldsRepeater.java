@@ -5,36 +5,40 @@ import org.apache.wicket.MarkupContainer;
 import org.apache.wicket.Response;
 import org.apache.wicket.markup.*;
 import org.apache.wicket.markup.html.WebMarkupContainerWithAssociatedMarkup;
-import org.apache.wicket.markup.html.form.FormComponentPanel;
-import org.apache.wicket.markup.html.form.ILabelProvider;
-import org.apache.wicket.markup.html.form.TextArea;
+import org.apache.wicket.markup.html.form.*;
 import org.apache.wicket.markup.parser.XmlTag;
 import org.apache.wicket.markup.parser.filter.WicketTagIdentifier;
 import org.apache.wicket.model.IModel;
 
+import java.io.Serializable;
 import java.util.Iterator;
 
 
 /**
  * Created by alexander on 05.10.14.
  */
-public class FormFields extends MarkupContainer {
+public class FieldsRepeater extends MarkupContainer {
 
     static {
         WicketTagIdentifier.registerWellKnownTagName("field");
         WicketTagIdentifier.registerWellKnownTagName("label");
     }
 
-    public FormFields(String id, IModel<?> model) {
+    protected Decorator<String> childIdDecorator = new ChildIdDecorator();
+    protected Decorator<String> labelDecorator = new LabelDecorator();
+
+    public FieldsRepeater(String id, IModel<?> model) {
         super(id, model);
     }
 
     private String getTagName(Component child) {
         String tagName;
         if (child instanceof TextArea) tagName = "textarea";
+        else if(child instanceof TextField) tagName = "input";
+        else if(child instanceof CheckBox) tagName = "input";
         else if (child instanceof WebMarkupContainerWithAssociatedMarkup || child instanceof FormComponentPanel)
             tagName = "span";
-        else throw new UnsupportedOperationException("doesnot support child element " + child);
+        else throw new UnsupportedOperationException("does not support child element " + child);
         return tagName;
     }
 
@@ -79,8 +83,13 @@ public class FormFields extends MarkupContainer {
         } else if (tag instanceof ComponentTag) {
             ComponentTag cTag = (ComponentTag) tag;
             if ((cTag.isOpen() || cTag.isOpenClose()) && "label".equals(cTag.getName())) {
-                if ("wicket:field".equals(cTag.getAttribute("wicket:for")))
+                if ("wicket:field".equals(cTag.getAttribute("wicket:for"))) {
+                    ComponentTag newTag = new ComponentTag(cTag.getName(), cTag.getType());
+                    newTag.getAttributes().putAll(cTag.getAttributes());
+                    cTag = newTag;
+                    cTag.getAttributes().remove("wicket:for");
                     cTag.getAttributes().put("for", getChildId(child));
+                }
             }
             response.write(cTag);
         } else response.write(tag.toCharSequence());
@@ -103,11 +112,11 @@ public class FormFields extends MarkupContainer {
     }
 
     protected String getChildId(Component child) {
-        return child.getId();
+        return childIdDecorator.decorate(child.getId());
     }
 
     protected void renderLabel(Component child) {
-        String label = getLabel(child);
+        String label = labelDecorator.decorate(getLabel(child));
 
         getResponse().write(label);
     }
@@ -121,5 +130,18 @@ public class FormFields extends MarkupContainer {
             label = model != null ? model.toString() : label;
         }
         return label;
+    }
+
+    class ChildIdDecorator implements Decorator<String> {
+        @Override
+        public String decorate(String s) {
+            return s;
+        }
+    }
+    class LabelDecorator implements Decorator<String> {
+        @Override
+        public String decorate(String s) {
+            return s;
+        }
     }
 }
