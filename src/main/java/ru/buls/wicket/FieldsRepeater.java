@@ -26,21 +26,12 @@ public class FieldsRepeater extends MarkupContainer {
 
     protected Decorator<String> childIdDecorator = new ChildIdDecorator();
     protected Decorator<String> labelDecorator = new LabelDecorator();
+    protected ChildTagBuilder childTagBuilder = new ChildTagBuilder();
 
     public FieldsRepeater(String id, IModel<?> model) {
         super(id, model);
     }
 
-    private String getTagName(Component child) {
-        String tagName;
-        if (child instanceof TextArea) tagName = "textarea";
-        else if(child instanceof TextField) tagName = "input";
-        else if(child instanceof CheckBox) tagName = "input";
-        else if (child instanceof WebMarkupContainerWithAssociatedMarkup || child instanceof FormComponentPanel)
-            tagName = "span";
-        else throw new UnsupportedOperationException("does not support child element " + child);
-        return tagName;
-    }
 
     @Override
     protected void onRender(final MarkupStream markupStream) {
@@ -55,8 +46,13 @@ public class FieldsRepeater extends MarkupContainer {
                 throw new IllegalStateException("the render iterator returned null for a child");
             }
 
-            MarkupElement elem = startTag;
+            ComponentTag newStart = new ComponentTag(startTag.getName(), startTag.getType());
+            newStart.getAttributes().putAll(startTag.getAttributes());
+            newStart.getAttributes().remove("wicket:id");
+            MarkupElement elem = newStart;
+
             renderTag(elem, child);
+
             while (!startTag.isOpenClose() && markupStream.hasMore()) {
                 elem = markupStream.next();
                 renderTag(elem, child);
@@ -71,51 +67,68 @@ public class FieldsRepeater extends MarkupContainer {
         } while (it.hasNext());
         else markupStream.skipComponent();
 
-        if (endIndex > 0) markupStream.setCurrentIndex(endIndex + 1);
+        if (endIndex > 0) {
+            markupStream.setCurrentIndex(endIndex);
+            if (markupStream.hasMore()) markupStream.next();
+        }
     }
 
     private void renderTag(MarkupElement tag, Component child) {
         Response response = getResponse();
         if (tag instanceof WicketTag) {
-            String name = ((WicketTag) tag).getName();
-            if ("field".equals(name)) renderChild(child);
-            else if ("label".equals(name)) renderLabel(child);
+            WicketTag wtag = (WicketTag) tag;
+            String name = wtag.getName();
+            if (!wtag.isOpenClose()) throw new IllegalStateException(tag + " must be closed");
+            if ("field".equals(name)) renderChild(child, wtag);
+            else if ("label".equals(name)) renderLabel(child, wtag);
         } else if (tag instanceof ComponentTag) {
             ComponentTag cTag = (ComponentTag) tag;
             if ((cTag.isOpen() || cTag.isOpenClose()) && "label".equals(cTag.getName())) {
-                if ("wicket:field".equals(cTag.getAttribute("wicket:for"))) {
+                String wicketFor = cTag.getAttribute("wicket:for");
+                if ("wicket:field".equals(wicketFor)) {
                     ComponentTag newTag = new ComponentTag(cTag.getName(), cTag.getType());
                     newTag.getAttributes().putAll(cTag.getAttributes());
                     cTag = newTag;
                     cTag.getAttributes().remove("wicket:for");
                     cTag.getAttributes().put("for", getChildId(child));
+                } else if (wicketFor != null) {
+                    throw new IllegalStateException("incorrect value '" + wicketFor
+                            + "' for attribute wicket:field of tag " + cTag);
                 }
             }
             response.write(cTag);
         } else response.write(tag.toCharSequence());
     }
 
-    protected void renderChild(Component child) {
-        String tagName = getTagName(child);
+    protected void renderChild(Component child, WicketTag wtag) {
+        String tagName = childTagBuilder.getTagName(child);
+        ComponentTag open = childTagBuilder.createOpenTag(child, tagName);
 
-        ComponentTag open = new ComponentTag(tagName, XmlTag.OPEN);
-        open.setId(getChildId(child));
-        open.getAttributes().put("id", getChildId(child));
+        String childId = getChildId(child);
+        open.setId(childId);
+        open.getAttributes().put("id", childId);
 
-        Markup markup = new Markup(MarkupResourceData.NO_MARKUP_RESOURCE_DATA);
-        markup.addMarkupElement(open);
-        ComponentTag close = new ComponentTag(tagName, XmlTag.CLOSE);
-        close.setOpenTag(open);
-        markup.addMarkupElement(close);
-        MarkupStream markupStream = new MarkupStream(markup);
+        open.getAttributes().putAll(wtag.getAttributes());
+
+        ComponentTag close = childTagBuilder.createCloseTag(tagName, open);
+        MarkupStream markupStream = createChildMarkup(open, close);
         child.render(markupStream);
+    }
+
+    private MarkupStream createChildMarkup(MarkupElement open, MarkupElement close) {
+        Markup markup = new Markup(MarkupResourceData.NO_MARKUP_RESOURCE_DATA);
+        if (open instanceof ComponentTag) {
+            markup.addMarkupElement(open);
+            if (close != null) markup.addMarkupElement(close);
+        }
+        return new MarkupStream(markup);
     }
 
     protected String getChildId(Component child) {
         return childIdDecorator.decorate(child.getId());
     }
 
-    protected void renderLabel(Component child) {
+    protected void renderLabel(Component child, WicketTag wtag) {
         String label = labelDecorator.decorate(getLabel(child));
 
         getResponse().write(label);
@@ -132,16 +145,46 @@ public class FieldsRepeater extends MarkupContainer {
         return label;
     }
 
-    class ChildIdDecorator implements Decorator<String> {
+    static class ChildIdDecorator implements Decorator<String> {
         @Override
         public String decorate(String s) {
             return s;
         }
     }
-    class LabelDecorator implements Decorator<String> {
+
+    static class LabelDecorator implements Decorator<String> {
         @Override
         public String decorate(String s) {
             return s;
         }
+    }
+
+    class ChildTagBuilder implements Serializable {
+        private String getTagName(Component child) {
+            String tagName;
+            if (child instanceof TextArea) tagName = "textarea";
+            else if (child instanceof TextField) tagName = "input";
+            else if (child instanceof CheckBox) tagName = "input";
+            else if (child instanceof AbstractChoice) tagName = "select";
+            else if (child instanceof WebMarkupContainerWithAssociatedMarkup || child instanceof FormComponentPanel)
+                tagName = "span";
+            else if (child instanceof FieldsRepeater) tagName = "span";
+            else throw new UnsupportedOperationException("does not support child element " + child);
+            return tagName;
+        }
+
+        protected ComponentTag createCloseTag(String tagName, MarkupElement open) {
+            ComponentTag close = new ComponentTag(tagName, XmlTag.CLOSE);
+            close.setOpenTag((ComponentTag) open);
+            return close;
+        }
+
+        protected ComponentTag createOpenTag(Component child, String tagName) {
+            ComponentTag open = new ComponentTag(tagName, XmlTag.OPEN);
+            if (child instanceof CheckBox) open.getAttributes().put("type", "checkbox");
+            if (child instanceof TextField) open.getAttributes().put("type", "text");
+            return open;
+        }
+
     }
 }
