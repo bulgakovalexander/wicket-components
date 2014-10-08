@@ -26,21 +26,12 @@ public class FieldsRepeater extends MarkupContainer {
 
     protected Decorator<String> childIdDecorator = new ChildIdDecorator();
     protected Decorator<String> labelDecorator = new LabelDecorator();
+    protected ChildTagBuilder childTagBuilder = new ChildTagBuilder();
 
     public FieldsRepeater(String id, IModel<?> model) {
         super(id, model);
     }
 
-    private String getTagName(Component child) {
-        String tagName;
-        if (child instanceof TextArea) tagName = "textarea";
-        else if(child instanceof TextField) tagName = "input";
-        else if(child instanceof CheckBox) tagName = "input";
-        else if (child instanceof WebMarkupContainerWithAssociatedMarkup || child instanceof FormComponentPanel)
-            tagName = "span";
-        else throw new UnsupportedOperationException("does not support child element " + child);
-        return tagName;
-    }
 
     @Override
     protected void onRender(final MarkupStream markupStream) {
@@ -77,7 +68,9 @@ public class FieldsRepeater extends MarkupContainer {
     private void renderTag(MarkupElement tag, Component child) {
         Response response = getResponse();
         if (tag instanceof WicketTag) {
-            String name = ((WicketTag) tag).getName();
+            WicketTag wtag = (WicketTag) tag;
+            String name = wtag.getName();
+            if (!wtag.isOpenClose()) throw new IllegalStateException(tag + " must be closed");
             if ("field".equals(name)) renderChild(child);
             else if ("label".equals(name)) renderLabel(child);
         } else if (tag instanceof ComponentTag) {
@@ -96,19 +89,23 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     protected void renderChild(Component child) {
-        String tagName = getTagName(child);
+        String tagName = childTagBuilder.getTagName(child);
+        ComponentTag open = childTagBuilder.createOpenTag(child, tagName);
 
-        ComponentTag open = new ComponentTag(tagName, XmlTag.OPEN);
-        open.setId(getChildId(child));
-        open.getAttributes().put("id", getChildId(child));
+        String childId = getChildId(child);
+        open.setId(childId);
+        open.getAttributes().put("id", childId);
 
+        ComponentTag close = childTagBuilder.createCloseTag(tagName, open);
+        MarkupStream markupStream = createChildMarkup(open, close);
+        child.render(markupStream);
+    }
+
+    private MarkupStream createChildMarkup(ComponentTag open, ComponentTag close) {
         Markup markup = new Markup(MarkupResourceData.NO_MARKUP_RESOURCE_DATA);
         markup.addMarkupElement(open);
-        ComponentTag close = new ComponentTag(tagName, XmlTag.CLOSE);
-        close.setOpenTag(open);
         markup.addMarkupElement(close);
-        MarkupStream markupStream = new MarkupStream(markup);
-        child.render(markupStream);
+        return new MarkupStream(markup);
     }
 
     protected String getChildId(Component child) {
@@ -132,16 +129,44 @@ public class FieldsRepeater extends MarkupContainer {
         return label;
     }
 
-    class ChildIdDecorator implements Decorator<String> {
+    static class ChildIdDecorator implements Decorator<String> {
         @Override
         public String decorate(String s) {
             return s;
         }
     }
-    class LabelDecorator implements Decorator<String> {
+
+    static class LabelDecorator implements Decorator<String> {
         @Override
         public String decorate(String s) {
             return s;
         }
+    }
+
+    class ChildTagBuilder implements Serializable {
+        private String getTagName(Component child) {
+            String tagName;
+            if (child instanceof TextArea) tagName = "textarea";
+            else if (child instanceof TextField) tagName = "input";
+            else if (child instanceof CheckBox) tagName = "input";
+            else if (child instanceof AbstractChoice) tagName = "select";
+            else if (child instanceof WebMarkupContainerWithAssociatedMarkup || child instanceof FormComponentPanel)
+                tagName = "span";
+            else throw new UnsupportedOperationException("does not support child element " + child);
+            return tagName;
+        }
+
+        protected ComponentTag createCloseTag(String tagName, ComponentTag open) {
+            ComponentTag close = new ComponentTag(tagName, XmlTag.CLOSE);
+            close.setOpenTag(open);
+            return close;
+        }
+
+        protected ComponentTag createOpenTag(Component child, String tagName) {
+            ComponentTag open = new ComponentTag(tagName, XmlTag.OPEN);
+            if (child instanceof CheckBox) open.getAttributes().put("type", "checkbox");
+            return open;
+        }
+
     }
 }
