@@ -28,10 +28,9 @@ public class FieldsRepeater extends MarkupContainer {
     protected Decorator<String> labelDecorator = new LabelDecorator();
     protected ChildTagBuilder childTagBuilder = new ChildTagBuilder();
 
-    public FieldsRepeater(String id, IModel<?> model) {
-        super(id, model);
+    public FieldsRepeater(String id) {
+        super(id);
     }
-
 
     @Override
     protected void onRender(final MarkupStream markupStream) {
