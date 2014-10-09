@@ -245,38 +245,14 @@ public class FieldsRepeater extends MarkupContainer {
             ComponentTag startTag = markupStream.getTag();
             assert startTag != null;
 
+            openEnclosure(markup, startTag);
             Component child = this.get(0);
-
             endIndex = child(markupStream, markup, startTag, child);
+            closeEnclosure(endIndex, markup, markupStream);
 
             if (endIndex > 0) markupStream.setCurrentIndex(endIndex);
             if (markupStream.hasMore()) markupStream.next();
             return markup;
-        }
-
-        private int child(MarkupStream markupStream, Markup markup, ComponentTag startTag, Component child) {
-            int endIndex = -1;
-            ComponentTag tag = new ComponentTag(startTag.getName(), startTag.getType());
-            tag.putAll(startTag.getAttributes());
-            tag.put("wicket:id", this.getMarkupId());
-            markup.addMarkupElement(tag);
-            MarkupElement next;
-            while (null != (next = markupStream.next())) {
-                boolean exit = false;
-                if (next instanceof ComponentTag) {
-                    ComponentTag cnext = (ComponentTag) next;
-                    ComponentTag ot = cnext.getOpenTag();
-                    if (ot != null && ot.equals(startTag)) {
-                        exit = true;
-                        endIndex = markupStream.getCurrentIndex();
-                    }
-                }
-
-                copy(createMarkupFor(next, child), markup);
-
-                if (exit) break;
-            }
-            return endIndex;
         }
 
         @Override
@@ -301,20 +277,58 @@ public class FieldsRepeater extends MarkupContainer {
             Component child = get(0);
             boolean childRendered = false;
             MarkupElement next = stream.get();
-            while (next != null) do {
+            while (next != null) {
                 if (next instanceof ComponentTag) {
                     ComponentTag ctag = (ComponentTag) next;
                     if (child.getId().equals(ctag.getId())) {
+                        int ci = stream.getCurrentIndex();
                         child.render(stream);
                         childRendered = true;
+                        //в результате отрисовки чайлда, стрим ушел вперед, по этому берем текущий, а не следующий элемент
+                        if (stream.getCurrentIndex() > ci) {
+                            next = stream.get();
+                            continue;
+                        }
                     } else getResponse().write(ctag);
-
-                } else if (next != null) getResponse().write(next.toCharSequence());
-            } while (stream.hasMore() && null != (next = stream.next()));
+                } else if (next != null) {
+                    getResponse().write(next.toCharSequence());
+                }
+                next = stream.next();
+            }
 
             if (!childRendered) {
                 throw new IllegalStateException("cannot find tag for child " + child);
             }
         }
     }
+
+    private void closeEnclosure(int endIndex, Markup markup, MarkupStream markupStream) {
+        MarkupElement closeTag = markupStream.get(endIndex);
+        markup.addMarkupElement(closeTag);
+    }
+
+    private int child(MarkupStream markupStream, Markup markup, ComponentTag startTag, Component child) {
+        int endIndex = -1;
+        MarkupElement next;
+        while (null != (next = markupStream.next())) {
+            if (next instanceof ComponentTag) {
+                ComponentTag cnext = (ComponentTag) next;
+                ComponentTag ot = cnext.getOpenTag();
+                if (ot != null && ot.equals(startTag)) {
+                    endIndex = markupStream.getCurrentIndex();
+                    break;
+                }
+            }
+            copy(createMarkupFor(next, child), markup);
+        }
+        return endIndex;
+    }
+
+    private void openEnclosure(Markup markup, ComponentTag startTag) {
+        ComponentTag tag = new ComponentTag(startTag.getName(), startTag.getType());
+        tag.putAll(startTag.getAttributes());
+        tag.put("wicket:id", this.getMarkupId());
+        markup.addMarkupElement(tag);
+    }
+
 }
