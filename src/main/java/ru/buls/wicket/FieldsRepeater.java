@@ -149,7 +149,7 @@ public class FieldsRepeater extends MarkupContainer {
 
     }
 
-    public void add(Component child, boolean enclosureVisible) {
+    public FieldsRepeater add(Component child, boolean enclosureVisible) {
         Enclosure enclo = new Enclosure(getEnclosureId(child));
         enclo.add(child);
         enclo.setVisible(enclosureVisible);
