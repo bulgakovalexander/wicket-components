@@ -9,7 +9,11 @@ import org.apache.wicket.markup.parser.XmlTag;
 import org.apache.wicket.markup.parser.filter.WicketTagIdentifier;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
+import org.apache.wicket.util.resource.ResourceStreamNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.Serializable;
 
 import static org.apache.wicket.markup.MarkupResourceData.NO_MARKUP_RESOURCE_DATA;
@@ -19,6 +23,8 @@ import static org.apache.wicket.markup.MarkupResourceData.NO_MARKUP_RESOURCE_DAT
  * Created by alexander on 05.10.14.
  */
 public class FieldsRepeater extends MarkupContainer {
+
+    private Logger logger = LoggerFactory.getLogger(FieldsRepeater.class);
 
     static {
         WicketTagIdentifier.registerWellKnownTagName("field");
@@ -33,56 +39,6 @@ public class FieldsRepeater extends MarkupContainer {
         super(id);
     }
 
-
-    @Override
-    public MarkupStream getAssociatedMarkupStream(boolean throwException) {
-        MarkupStream markupStream = getMarkupStream();
-        Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
-
-        int startIndex = markupStream.getCurrentIndex();
-        int endIndex = -1;
-        int amount = size();
-        for (int i = 0; i < amount; ++i) {
-            markupStream.setCurrentIndex(startIndex);
-            ComponentTag startTag = markupStream.getTag();
-            assert startTag != null;
-            Component component = get(i);
-            Enclosure enclosure = (Enclosure) component;
-            Component child = enclosure.get(0);
-            enclosure.setMarkupId(getEnclosureId(child));
-            ComponentTag tag = new ComponentTag(startTag.getName(), startTag.getType());
-            tag.putAll(startTag.getAttributes());
-            tag.put("id", enclosure.getMarkupId());
-            markup.addMarkupElement(tag);
-            MarkupElement next;
-            while (null != (next = markupStream.next())) {
-
-                boolean exit = false;
-                if (next instanceof ComponentTag) {
-                    ComponentTag cnext = (ComponentTag) next;
-                    ComponentTag ot = cnext.getOpenTag();
-                    if (ot != null && ot.equals(startTag)) {
-                        exit = true;
-                        endIndex = markupStream.getCurrentIndex();
-                    }
-                }
-                markup.addMarkupElement(next);
-
-                if (exit) break;
-            }
-        }
-
-        if (endIndex > 0) markupStream.setCurrentIndex(endIndex);
-        if (markupStream.hasMore()) markupStream.next();
-
-        return new MarkupStream(markup);
-    }
-
-    @Override
-    public boolean hasAssociatedMarkup() {
-        return false;
-    }
-
     @Override
     protected void onRender(final MarkupStream markupStream) {
         int startIndex = markupStream.getCurrentIndex();
@@ -92,35 +48,6 @@ public class FieldsRepeater extends MarkupContainer {
             Component component = get(i);
             component.render(markupStream);
         }
-    }
-
-    private MarkupStream generateMarkupStream(MarkupStream markupStream) {
-        Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
-
-        ComponentTag startTag = markupStream.getTag();
-        assert startTag != null;
-        int startIndex = markupStream.getCurrentIndex();
-        int endIndex = -1;
-
-        MarkupElement elem = startTag;
-
-        for (int i = 0; i < size(); ++i) {
-            Component child = get(i);
-            if (child == null) throw new IllegalStateException(this + " must has children");
-            copy(renderTag(elem, child), markup);
-
-            while (!startTag.isOpenClose() && markupStream.hasMore()) {
-                elem = markupStream.next();
-                copy(renderTag(elem, child), markup);
-                if (elem instanceof ComponentTag
-                        && startTag == ((ComponentTag) elem).getOpenTag()) {
-                    endIndex = markupStream.getCurrentIndex();
-                    //markupStream.setCurrentIndex(startIndex);
-                    break;
-                }
-            }
-        }
-        return new MarkupStream(markup);
     }
 
     private void copy(Markup from, Markup to) {
@@ -154,8 +81,8 @@ public class FieldsRepeater extends MarkupContainer {
                     ComponentTag newTag = new ComponentTag(cTag.getName(), cTag.getType());
                     newTag.getAttributes().putAll(cTag.getAttributes());
                     cTag = newTag;
-                    cTag.getAttributes().remove("wicket:for");
-                    cTag.getAttributes().put("for", getChildId(child));
+                    //cTag.getAttributes().remove("wicket:for");
+                    cTag.getAttributes().put("wicket:for", getChildId(child));
                 } else if (wicketFor != null) {
                     throw new IllegalStateException("incorrect value '" + wicketFor
                             + "' for attribute wicket:field of tag " + cTag);
@@ -166,9 +93,6 @@ public class FieldsRepeater extends MarkupContainer {
             markup.addMarkupElement(cTag);
 
             childMarkup = markup;
-
-            //cTag.writeOutput(response, true, findMarkupStream().getWicketNamespace());
-            //response.write(cTag);
         } else {
             Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
             markup.addMarkupElement(tag);
@@ -186,7 +110,7 @@ public class FieldsRepeater extends MarkupContainer {
 
         String childId = getChildId(child);
         open.setId(childId);
-        open.put("id", childId);
+        open.put("wicket:id", childId);
 
         //копируем атрибуты викет тега
         if (wtag != null)
@@ -288,7 +212,7 @@ public class FieldsRepeater extends MarkupContainer {
 
     class Enclosure extends MarkupContainer {
 
-        private MarkupStream generatedMarkupStream;
+        private String generatedMarkup;
 
         public Enclosure(String id) {
             super(id, new Model());
@@ -296,13 +220,29 @@ public class FieldsRepeater extends MarkupContainer {
 
         @Override
         public MarkupStream getAssociatedMarkupStream(boolean throwException) {
-            if (generatedMarkupStream == null) {
-                generatedMarkupStream = generate();
+            Markup markup;
+            if (generatedMarkup == null) {
+                StringBuilder builder = new StringBuilder();
+                markup = generate();
+                for (int i = 0; i < markup.size(); ++i) {
+                    MarkupElement element = markup.get(i);
+                    if (element != null) builder.append(element.toCharSequence());
+                }
+                generatedMarkup = builder.toString();
+            } else try {
+                Markup parse = new MarkupParser(generatedMarkup).parse();
+                copy(parse, markup = new Markup(NO_MARKUP_RESOURCE_DATA));
+            } catch (IOException e) {
+                logger.error("error on parsing generated markup : " + generatedMarkup, e);
+                throw new RuntimeException(e);
+            } catch (ResourceStreamNotFoundException e) {
+                logger.error("error on parsing generated markup : " + generatedMarkup, e);
+                throw new RuntimeException(e);
             }
-            return generatedMarkupStream;
+            return new MarkupStream(markup);
         }
 
-        protected MarkupStream generate() {
+        protected Markup generate() {
             MarkupStream markupStream = getMarkupStream();
             Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
 
@@ -337,7 +277,7 @@ public class FieldsRepeater extends MarkupContainer {
 
             if (endIndex > 0) markupStream.setCurrentIndex(endIndex);
             if (markupStream.hasMore()) markupStream.next();
-            return new MarkupStream(markup);
+            return markup;
         }
 
         @Override
