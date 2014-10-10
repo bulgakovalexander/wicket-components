@@ -21,6 +21,17 @@ import static org.apache.wicket.markup.MarkupResourceData.NO_MARKUP_RESOURCE_DAT
 
 /**
  * Created by alexander on 05.10.14.
+ * Предназначен для генерации разметки форм на основе шаблона
+ * Пример шаблона
+ *  <span wicket:id="fields">
+ *        <wicket:label/> <wicket:field class="cssClass"/><br/>
+ *  </span>
+ *  где атрибут wicket:id="fields" - идентификатор компонента
+ *  <wicket:label/> - подпись элемента формы
+ *  <wicket:field/> - элемент формы
+ *
+ *  Комноненты добавляются методом add(Component child) или add(Component child, boolean enclosureVisible)
+ *  @see ChildTagBuilder - реализация генерации тегов для различных элементов формы
  */
 public class FieldsRepeater extends MarkupContainer {
 
