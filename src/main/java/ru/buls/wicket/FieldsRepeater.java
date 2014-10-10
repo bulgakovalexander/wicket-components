@@ -116,8 +116,8 @@ public class FieldsRepeater extends MarkupContainer {
         int endIndex = child(markupStream, markup, startTag, child);
         closeEnclosure(endIndex, markup, markupStream);
 
-        if (endIndex > 0) markupStream.setCurrentIndex(endIndex);
-        if (markupStream.hasMore()) markupStream.next();
+//        if (endIndex > 0) markupStream.setCurrentIndex(endIndex);
+//        if (markupStream.hasMore()) markupStream.next();
         return markup;
     }
 
@@ -158,23 +158,48 @@ public class FieldsRepeater extends MarkupContainer {
 
     @Override
     protected void onRender(@Deprecated final MarkupStream markupStream) {
+        int startIndex = markupStream.getCurrentIndex();
+        MarkupElement thisElement = markupStream.get();
+        if (thisElement == null) {
+            throw new IllegalArgumentException("markupStream.get() return null");
+        } else if (!(thisElement instanceof ComponentTag)) {
+            throw new IllegalArgumentException("markupStream.get() must return ComponentTag");
+        }
+
+        //по текущему маркапу проходим до конца, имитируя рендеринг
+        ComponentTag openTag = (ComponentTag) thisElement;
+        while (markupStream.hasMore()) {
+            MarkupElement next = markupStream.next();
+            if (next instanceof ComponentTag) {
+                ComponentTag closeTag = (ComponentTag) next;
+                if (openTag.equals(closeTag.getOpenTag())) {
+                    //if(markupStream.hasMore()) markupStream.next();
+                    break;
+                }
+            }
+        }
+
+        //рендерим чайлды на основе своего маркапа
         MarkupStream stream = getAssociatedMarkupStream(false);
-        while(stream.hasMore()) {
+        while (stream.hasMore()) {
             int currentIndex = stream.getCurrentIndex();
 
             MarkupElement markupElement = stream.get();
-            if(markupElement instanceof ComponentTag) {
+            if (markupElement instanceof ComponentTag) {
                 ComponentTag coTag = (ComponentTag) markupElement;
                 String id = coTag.getId();
                 Component child = get(id);
                 child.render(stream);
                 int index = stream.getCurrentIndex();
                 assert !(index < currentIndex);
-                if(index == currentIndex) {
+                if (index == currentIndex) {
                     stream.setCurrentIndex(currentIndex + 1);
                 }
             }
         }
+
+
+        markupStream.next();
 
 //        int startIndex = markupStream.getCurrentIndex();
 //
@@ -318,11 +343,13 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     class Enclosure extends MarkupContainer {
-
-        private String generatedMarkup;
-
         public Enclosure(String id) {
             super(id, new Model());
+        }
+
+        @Override
+        protected void onRender(MarkupStream markupStream) {
+            super.onRender(markupStream);
         }
     }
 }
