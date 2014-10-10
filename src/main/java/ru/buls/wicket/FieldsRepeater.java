@@ -127,9 +127,10 @@ public class FieldsRepeater extends MarkupContainer {
         markup.addMarkupElement(closeTag);
     }
 
-    private int child(MarkupStream markupStream, Markup markup, ComponentTag startTag, Component child) {
+    private int child(MarkupStream markupStream, Markup markup, ComponentTag baseTag, Component child) {
         int endIndex = -1;
         MarkupElement next;
+        ComponentTag startTag = (ComponentTag) markupStream.get();
         while (null != (next = markupStream.next())) {
             if (next instanceof ComponentTag) {
                 ComponentTag cnext = (ComponentTag) next;
@@ -138,6 +139,7 @@ public class FieldsRepeater extends MarkupContainer {
                     endIndex = markupStream.getCurrentIndex();
                     break;
                 }
+                assert ot == null || !baseTag.getId().equals(ot.getId()) : "markup overflow";
             }
             copy(createMarkupFor(next, child), markup);
         }
@@ -186,10 +188,12 @@ public class FieldsRepeater extends MarkupContainer {
             }
         }
 
+        int endIndex = markupStream.getCurrentIndex();
         //по текущему маркапу проходим до конца, имитируя рендеринг
         ComponentTag openTag = (ComponentTag) thisElement;
-        while (markupStream.hasMore()) {
-            MarkupElement next = markupStream.next();
+
+        MarkupElement next = markupStream.get();
+        while (next != null) {
             if (next instanceof ComponentTag) {
                 ComponentTag closeTag = (ComponentTag) next;
                 if (openTag.equals(closeTag.getOpenTag())) {
@@ -197,9 +201,10 @@ public class FieldsRepeater extends MarkupContainer {
                     break;
                 }
             }
+            next = markupStream.next();
         }
 
-        markupStream.next();
+//        markupStream.next();
 
 //        int startIndex = markupStream.getCurrentIndex();
 //
