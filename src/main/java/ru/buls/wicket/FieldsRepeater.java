@@ -110,6 +110,7 @@ public class FieldsRepeater extends MarkupContainer {
 
         ComponentTag startTag = markupStream.getTag();
         assert startTag != null;
+        assert !startTag.isClose();
 
         openEnclosure(markup, startTag, enclosure);
         Component child = enclosure.get(0);
@@ -166,19 +167,6 @@ public class FieldsRepeater extends MarkupContainer {
             throw new IllegalArgumentException("markupStream.get() must return ComponentTag");
         }
 
-        //по текущему маркапу проходим до конца, имитируя рендеринг
-        ComponentTag openTag = (ComponentTag) thisElement;
-        while (markupStream.hasMore()) {
-            MarkupElement next = markupStream.next();
-            if (next instanceof ComponentTag) {
-                ComponentTag closeTag = (ComponentTag) next;
-                if (openTag.equals(closeTag.getOpenTag())) {
-                    //if(markupStream.hasMore()) markupStream.next();
-                    break;
-                }
-            }
-        }
-
         //рендерим чайлды на основе своего маркапа
         MarkupStream stream = getAssociatedMarkupStream(false);
         while (stream.hasMore()) {
@@ -198,6 +186,18 @@ public class FieldsRepeater extends MarkupContainer {
             }
         }
 
+        //по текущему маркапу проходим до конца, имитируя рендеринг
+        ComponentTag openTag = (ComponentTag) thisElement;
+        while (markupStream.hasMore()) {
+            MarkupElement next = markupStream.next();
+            if (next instanceof ComponentTag) {
+                ComponentTag closeTag = (ComponentTag) next;
+                if (openTag.equals(closeTag.getOpenTag())) {
+                    //if(markupStream.hasMore()) markupStream.next();
+                    break;
+                }
+            }
+        }
 
         markupStream.next();
 
