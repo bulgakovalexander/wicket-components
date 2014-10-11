@@ -10,6 +10,7 @@ import org.apache.wicket.markup.parser.filter.WicketTagIdentifier;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.util.resource.ResourceStreamNotFoundException;
+import org.apache.wicket.util.value.IValueMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,15 +24,16 @@ import static org.apache.wicket.markup.MarkupResourceData.NO_MARKUP_RESOURCE_DAT
  * Created by alexander on 05.10.14.
  * Предназначен для генерации разметки форм на основе шаблона
  * Пример шаблона
- *  <span wicket:id="fields">
- *        <wicket:label/> <wicket:field class="cssClass"/><br/>
- *  </span>
- *  где атрибут wicket:id="fields" - идентификатор компонента
- *  <wicket:label/> - подпись элемента формы
- *  <wicket:field/> - элемент формы
+ * <span wicket:id="fields">
+ * <wicket:label/> <wicket:field class="cssClass"/><br/>
+ * </span>
+ * где атрибут wicket:id="fields" - идентификатор компонента
+ * <wicket:label/> - подпись элемента формы
+ * <wicket:field/> - элемент формы
+ * <p/>
+ * Комноненты добавляются методом add(Component child) или add(Component child, boolean enclosureVisible)
  *
- *  Комноненты добавляются методом add(Component child) или add(Component child, boolean enclosureVisible)
- *  @see ChildTagBuilder - реализация генерации тегов для различных элементов формы
+ * @see ChildTagBuilder - реализация генерации тегов для различных элементов формы
  */
 public class FieldsRepeater extends MarkupContainer {
 
@@ -39,6 +41,7 @@ public class FieldsRepeater extends MarkupContainer {
     private static final String WICKET_FIELD = "wicket:field";
     private static final String WICKET_FOR = "wicket:for";
     private static final String LABEL = "label";
+
     private Logger logger = LoggerFactory.getLogger(FieldsRepeater.class);
 
     static {
@@ -55,7 +58,6 @@ public class FieldsRepeater extends MarkupContainer {
     public FieldsRepeater(String id) {
         super(id);
     }
-
 
     public Enclosure add(Component child) {
         return add(child, true);
@@ -74,6 +76,11 @@ public class FieldsRepeater extends MarkupContainer {
         }
         super.add(enclo);
         return enclo;
+    }
+
+
+    public void setLabelDecorator(Decorator<String> labelDecorator) {
+        this.labelDecorator = labelDecorator;
     }
 
     @Override
@@ -124,8 +131,7 @@ public class FieldsRepeater extends MarkupContainer {
         assert !startTag.isClose();
 
         openEnclosure(markup, startTag, enclosure);
-        Component child = enclosure.get(0);
-        int endIndex = child(markupStream, markup, startTag, child);
+        int endIndex = child(markupStream, markup, startTag, enclosure);
         closeEnclosure(endIndex, markup, markupStream);
 
 //        if (endIndex > 0) markupStream.setCurrentIndex(endIndex);
@@ -138,7 +144,7 @@ public class FieldsRepeater extends MarkupContainer {
         markup.addMarkupElement(closeTag);
     }
 
-    private int child(MarkupStream markupStream, Markup markup, ComponentTag baseTag, Component child) {
+    private int child(MarkupStream markupStream, Markup markup, ComponentTag baseTag, Enclosure enclosure) {
         int endIndex = -1;
         MarkupElement next;
         ComponentTag startTag = (ComponentTag) markupStream.get();
@@ -152,7 +158,7 @@ public class FieldsRepeater extends MarkupContainer {
                 }
                 assert ot == null || !baseTag.getId().equals(ot.getId()) : "markup overflow";
             }
-            copy(createMarkupFor(next, child), markup);
+            copy(createMarkupFor(next, enclosure), markup);
         }
         return endIndex;
     }
@@ -160,7 +166,7 @@ public class FieldsRepeater extends MarkupContainer {
     private void openEnclosure(Markup markup, ComponentTag startTag, Enclosure enclosure) {
         ComponentTag tag = new ComponentTag(startTag.getName(), startTag.getType());
         tag.putAll(startTag.getAttributes());
-        tag.put("wicket:id", enclosure.getMarkupId());
+        tag.put(WICKET_ID, enclosure.getMarkupId());
         markup.addMarkupElement(tag);
     }
 
@@ -214,64 +220,48 @@ public class FieldsRepeater extends MarkupContainer {
             }
             next = markupStream.next();
         }
-
-//        markupStream.next();
-
-//        int startIndex = markupStream.getCurrentIndex();
-//
-//        for (int i = 0; i < size(); ++i) {
-//            markupStream.setCurrentIndex(startIndex);
-//            Component component = get(i);
-//            component.render(markupStream);
-//        }
-
     }
 
-
     private void copy(Markup from, Markup to) {
-        for (int i = 0; i < from.size(); ++i) {
+        for (int i = 0; i < from.size(); ++i)
             to.addMarkupElement(from.get(i));
-        }
     }
 
     private String getEnclosureId(Component child) {
         return "enclosureFor" + child.getMarkupId();
     }
 
-    private Markup createMarkupFor(MarkupElement tag, Component child) {
+    private Markup createMarkupFor(MarkupElement tag, Enclosure enclosure) {
+        Component child = enclosure.get(0);
         Markup childMarkup;
         if (tag instanceof WicketTag) {
             WicketTag wtag = (WicketTag) tag;
             String name = wtag.getName();
-            if (!wtag.isOpenClose()) {
+            if (!wtag.isOpenClose())
                 throw new IllegalStateException(tag + " must be closed");
-            }
             if ("field".equals(name))
                 childMarkup = createChildMarkup(child, wtag);
             else if (LABEL.equals(name))
-                childMarkup = getLabelMarkup(child);
+                childMarkup = getLabelMarkup(enclosure);
             else throw new IllegalStateException(tag.toString());
-        } else if (tag instanceof ComponentTag) {
-            ComponentTag cTag = (ComponentTag) tag;
-            if ((cTag.isOpen() || cTag.isOpenClose()) && LABEL.equals(cTag.getName())) {
-                String wicketFor = cTag.getAttribute(WICKET_FOR);
-                if (WICKET_FIELD.equals(wicketFor)) {
-                    ComponentTag newTag = new ComponentTag(cTag.getName(), cTag.getType());
-                    newTag.getAttributes().putAll(cTag.getAttributes());
-                    cTag = newTag;
-                    //cTag.getAttributes().remove("wicket:for");
-                    cTag.getAttributes().put(WICKET_FOR, child.getMarkupId());
-                } else if (wicketFor != null) {
-                    throw new IllegalStateException("incorrect value '" + wicketFor
-                            + "' for attribute " + WICKET_FIELD + " of tag " + cTag);
+        } else {
+            if (tag instanceof ComponentTag) {
+                ComponentTag cTag = (ComponentTag) tag;
+                if ((cTag.isOpen() || cTag.isOpenClose()) && LABEL.equals(cTag.getName())) {
+                    String wicketFor = cTag.getAttribute(WICKET_FOR);
+                    if (WICKET_FIELD.equals(wicketFor)) {
+                        ComponentTag newTag = new ComponentTag(cTag.getName(), cTag.getType());
+                        IValueMap attributes = newTag.getAttributes();
+                        attributes.putAll(cTag.getAttributes());
+                        if (child instanceof ILabelProvider)
+                            attributes.put(WICKET_FOR, child.getMarkupId());
+                        else attributes.remove(WICKET_FOR);
+                        tag = newTag;
+                    } else if (wicketFor != null)
+                        throw new IllegalStateException("incorrect value '" + wicketFor
+                                + "' for attribute " + WICKET_FIELD + " of tag " + cTag);
                 }
             }
-
-            Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
-            markup.addMarkupElement(cTag);
-
-            childMarkup = markup;
-        } else {
             Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
             markup.addMarkupElement(tag);
             childMarkup = markup;
@@ -300,8 +290,8 @@ public class FieldsRepeater extends MarkupContainer {
         return markup;
     }
 
-    private Markup getLabelMarkup(Component child) {
-        String label = labelDecorator.decorate(getLabel(child));
+    private Markup getLabelMarkup(Enclosure enclosure) {
+        String label = labelDecorator.decorate(getLabel(enclosure));
 
         Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
         markup.addMarkupElement(new RawMarkup(label));
@@ -309,34 +299,42 @@ public class FieldsRepeater extends MarkupContainer {
         return markup;
     }
 
-    protected String getLabel(Component child) {
-        String label = child.getMarkupId();
-        if (child instanceof ILabelProvider) {
-            ILabelProvider labelProvider = (ILabelProvider) child;
-
-            IModel model = labelProvider.getLabel();
-            label = model != null ? model.toString() : label;
-        }
-        return label;
+    protected String getLabel(Enclosure enclosure) {
+        IModel model = enclosure.getLabel();
+        return model != null && model.getObject() != null
+                ? model.getObject().toString() : enclosure.get().getMarkupId();
     }
 
-    static class LabelDecorator implements Decorator<String> {
+    public static class LabelDecorator implements Decorator<String> {
+        public String suffix;
+        public String prefix;
+
+        public LabelDecorator() {
+        }
+
+        public LabelDecorator(String suffix) {
+            this.suffix = suffix;
+        }
+
         @Override
         public String decorate(String s) {
-            return s;
+            return (s != null && !s.isEmpty())
+                    ? (prefix != null ? prefix : "") + s + (suffix != null ? suffix : "") : s;
         }
     }
 
     class ChildTagBuilder implements Serializable {
         private String getTagName(Component child) {
             String tagName;
-            if (child instanceof TextArea) tagName = "textarea";
-            else if (child instanceof TextField) tagName = "input";
+            if (child instanceof TextField) tagName = "input";
             else if (child instanceof CheckBox) tagName = "input";
+            else if (child instanceof Button) tagName = "input";
+            else if (child instanceof TextArea) tagName = "textarea";
             else if (child instanceof AbstractChoice) tagName = "select";
-            else if (child instanceof WebMarkupContainerWithAssociatedMarkup || child instanceof FormComponentPanel)
+            else if (child instanceof WebMarkupContainerWithAssociatedMarkup
+                    || child instanceof FormComponentPanel
+                    || child instanceof FieldsRepeater)
                 tagName = "span";
-            else if (child instanceof FieldsRepeater) tagName = "span";
             else {
                 throw new UnsupportedOperationException("does not support child element " + child);
             }
@@ -351,14 +349,21 @@ public class FieldsRepeater extends MarkupContainer {
 
         protected ComponentTag createOpenTag(Component child, String tagName) {
             ComponentTag open = new ComponentTag(tagName, XmlTag.OPEN);
-            if (child instanceof CheckBox) open.getAttributes().put("type", "checkbox");
-            if (child instanceof TextField) open.getAttributes().put("type", "text");
+            IValueMap attributes = open.getAttributes();
+            String type = null;
+            if (child instanceof CheckBox) type = "checkbox";
+            else if (child instanceof TextField) type = "text";
+            else if (child instanceof Button) type = "button";
+            if (type != null) attributes.put("type", type);
             return open;
         }
 
     }
 
-    class Enclosure extends MarkupContainer {
+    public class Enclosure extends MarkupContainer implements ILabelProvider {
+
+        IModel label;
+
         public Enclosure(String id) {
             super(id, new Model());
         }
@@ -366,6 +371,23 @@ public class FieldsRepeater extends MarkupContainer {
         @Override
         protected void onRender(MarkupStream markupStream) {
             super.onRender(markupStream);
+        }
+
+        public Component get() {
+            return get(0);
+        }
+
+        @Override
+        public IModel getLabel() {
+            Component component = get();
+            if (label == null && component instanceof ILabelProvider) {
+                label = ((ILabelProvider) component).getLabel();
+            }
+            return label;
+        }
+
+        public void setLabel(IModel label) {
+            this.label = label;
         }
     }
 }
