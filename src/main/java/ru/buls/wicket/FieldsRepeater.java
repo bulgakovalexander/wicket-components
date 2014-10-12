@@ -105,7 +105,8 @@ public class FieldsRepeater extends MarkupContainer {
         Markup markup;
         try {
             Markup parse = new MarkupParser(generatedMarkup).parse();
-            copy(parse, markup = new Markup(NO_MARKUP_RESOURCE_DATA));
+            markup = parse;
+            //copy(parse, markup = new Markup(NO_MARKUP_RESOURCE_DATA));
         } catch (IOException e) {
             logger.error("error on parsing generated markup : " + generatedMarkup, e);
             throw new RuntimeException(e);
@@ -302,7 +303,7 @@ public class FieldsRepeater extends MarkupContainer {
     protected String getLabel(Enclosure enclosure) {
         IModel model = enclosure.getLabel();
         return model != null && model.getObject() != null
-                ? model.getObject().toString() : enclosure.get().getMarkupId();
+                ? model.getObject().toString() : null;
     }
 
     public static class LabelDecorator implements Decorator<String> {
