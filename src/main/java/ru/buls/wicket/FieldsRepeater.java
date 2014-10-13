@@ -4,6 +4,7 @@ import org.apache.wicket.Component;
 import org.apache.wicket.MarkupContainer;
 import org.apache.wicket.markup.*;
 import org.apache.wicket.markup.html.WebMarkupContainerWithAssociatedMarkup;
+import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.*;
 import org.apache.wicket.markup.parser.XmlTag;
 import org.apache.wicket.markup.parser.filter.WicketTagIdentifier;
@@ -334,7 +335,8 @@ public class FieldsRepeater extends MarkupContainer {
             else if (child instanceof AbstractChoice) tagName = "select";
             else if (child instanceof WebMarkupContainerWithAssociatedMarkup
                     || child instanceof FormComponentPanel
-                    || child instanceof FieldsRepeater)
+                    || child instanceof FieldsRepeater
+                    || child instanceof Label)
                 tagName = "span";
             else {
                 throw new UnsupportedOperationException("does not support child element " + child);
