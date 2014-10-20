@@ -55,6 +55,7 @@ public class FieldsRepeater extends MarkupContainer {
     protected boolean simplifyMarkupId = true;
 
     private String generatedMarkup;
+    private boolean supportWicketFor = true;
 
     public FieldsRepeater(String id) {
         super(id);
@@ -79,6 +80,9 @@ public class FieldsRepeater extends MarkupContainer {
         return enclo;
     }
 
+    public void setChildTagBuilder(ChildTagBuilder childTagBuilder) {
+        this.childTagBuilder = childTagBuilder;
+    }
 
     public void setLabelDecorator(Decorator<String> labelDecorator) {
         this.labelDecorator = labelDecorator;
@@ -247,28 +251,34 @@ public class FieldsRepeater extends MarkupContainer {
                 childMarkup = getLabelMarkup(enclosure);
             else throw new IllegalStateException(tag.toString());
         } else {
-            if (tag instanceof ComponentTag) {
-                ComponentTag cTag = (ComponentTag) tag;
-                if ((cTag.isOpen() || cTag.isOpenClose()) && LABEL.equals(cTag.getName())) {
-                    String wicketFor = cTag.getAttribute(WICKET_FOR);
-                    if (WICKET_FIELD.equals(wicketFor)) {
-                        ComponentTag newTag = new ComponentTag(cTag.getName(), cTag.getType());
-                        IValueMap attributes = newTag.getAttributes();
-                        attributes.putAll(cTag.getAttributes());
-                        if (child instanceof ILabelProvider)
-                            attributes.put(WICKET_FOR, child.getMarkupId());
-                        else attributes.remove(WICKET_FOR);
-                        tag = newTag;
-                    } else if (wicketFor != null)
-                        throw new IllegalStateException("incorrect value '" + wicketFor
-                                + "' for attribute " + WICKET_FIELD + " of tag " + cTag);
-                }
-            }
+            if (tag instanceof ComponentTag) tag = createLabelElement(tag, child);
             Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
             markup.addMarkupElement(tag);
             childMarkup = markup;
         }
         return childMarkup;
+    }
+
+    private MarkupElement createLabelElement(MarkupElement tag, Component child) {
+        ComponentTag cTag = (ComponentTag) tag;
+        if ((cTag.isOpen() || cTag.isOpenClose()) && LABEL.equals(cTag.getName())) {
+            String wicketFor = cTag.getAttribute(WICKET_FOR);
+            if (WICKET_FIELD.equals(wicketFor)) {
+
+                ComponentTag newTag = new ComponentTag(cTag.getName(), cTag.getType());
+                IValueMap attributes = newTag.getAttributes();
+                attributes.putAll(cTag.getAttributes());
+
+                if (supportWicketFor && child instanceof ILabelProvider)
+                    attributes.put(WICKET_FOR, child.getMarkupId());
+                else attributes.remove(WICKET_FOR);
+
+                tag = newTag;
+            } else if (wicketFor != null)
+                throw new IllegalStateException("incorrect value '" + wicketFor
+                        + "' for attribute " + WICKET_FIELD + " of tag " + cTag);
+        }
+        return tag;
     }
 
     private Markup createChildMarkup(Component child, WicketTag wtag) {
@@ -325,8 +335,8 @@ public class FieldsRepeater extends MarkupContainer {
         }
     }
 
-    class ChildTagBuilder implements Serializable {
-        private String getTagName(Component child) {
+    public class ChildTagBuilder implements Serializable {
+        public String getTagName(Component child) {
             String tagName;
             if (child instanceof TextField) tagName = "input";
             else if (child instanceof CheckBox) tagName = "input";
