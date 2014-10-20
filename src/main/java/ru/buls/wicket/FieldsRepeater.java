@@ -335,7 +335,7 @@ public class FieldsRepeater extends MarkupContainer {
         }
     }
 
-    public class ChildTagBuilder implements Serializable {
+    public static class ChildTagBuilder implements Serializable {
         public String getTagName(Component child) {
             String tagName;
             if (child instanceof TextField) tagName = "input";
