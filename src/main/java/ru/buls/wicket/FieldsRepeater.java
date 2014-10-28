@@ -293,7 +293,7 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     private Markup getLabelMarkup(Enclosure enclosure) {
-        String label = labelDecorator.decorate(getLabel(enclosure));
+        String label = enclosure.showLabel ? labelDecorator.decorate(getLabel(enclosure)) : "";
 
         Markup markup = new Markup(NO_MARKUP_RESOURCE_DATA);
         markup.addMarkupElement(new RawMarkup(label));
@@ -366,6 +366,7 @@ public class FieldsRepeater extends MarkupContainer {
     public class Enclosure extends MarkupContainer implements ILabelProvider {
 
         IModel label;
+        boolean showLabel = true;
 
         public Enclosure(String id) {
             super(id, new Model());
@@ -391,6 +392,10 @@ public class FieldsRepeater extends MarkupContainer {
 
         public void setLabel(IModel label) {
             this.label = label;
+        }
+
+        public void setShowLabel(boolean showLabel) {
+            this.showLabel = showLabel;
         }
     }
 }
