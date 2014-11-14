@@ -394,14 +394,14 @@ public class FieldsRepeater extends MarkupContainer {
         @Override
         public IModel getLabel() {
             Component component = get();
-            if (label == null && component instanceof ILabelProvider) {
-                label = ((ILabelProvider) component).getLabel();
-            }
+            if (component instanceof FormComponent) label = ((FormComponent) component).getLabel();
             return label;
         }
 
         public void setLabel(IModel label) {
             this.label = label;
+            Component component = get();
+            if (component instanceof FormComponent) ((FormComponent) component).setLabel(label);
         }
 
         public void setShowLabel(boolean showLabel) {
