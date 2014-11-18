@@ -10,7 +10,6 @@ import org.apache.wicket.markup.parser.XmlTag;
 import org.apache.wicket.markup.parser.filter.WicketTagIdentifier;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
-import org.apache.wicket.model.PropertyModel;
 import org.apache.wicket.util.resource.ResourceStreamNotFoundException;
 import org.apache.wicket.util.value.IValueMap;
 import org.slf4j.Logger;
@@ -45,7 +44,6 @@ public class FieldsRepeater extends MarkupContainer {
     private static final String LABEL = "label";
 
     private Logger logger = LoggerFactory.getLogger(FieldsRepeater.class);
-    private final boolean isReadOnly;
 
     static {
         WicketTagIdentifier.registerWellKnownTagName("field");
@@ -59,9 +57,8 @@ public class FieldsRepeater extends MarkupContainer {
     private String generatedMarkup;
     private boolean supportWicketFor = true;
 
-    public FieldsRepeater(String id, boolean readOnly) {
+    public FieldsRepeater(String id) {
         super(id);
-        this.isReadOnly = readOnly;
     }
 
     public Enclosure add(Component child) {
@@ -69,18 +66,6 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     public Enclosure add(Component child, boolean enclosureVisible) {
-        if(isReadOnly) {
-            if(child instanceof DropDownChoice){
-                IModel m = null;
-                if((m = child.getDefaultModel()) == null){
-                    m = getParent().getDefaultModel();
-                    Object obj = new PropertyModel(m.getObject(), child.getId()).getObject();
-                    m = new PropertyModel(obj, "name");
-                }
-                child = new FdcLabel(child.getId(), m);
-            }
-            child = new FdcLabel(child.getId(), child.getDefaultModel());
-        }
         Enclosure enclo = new Enclosure(getEnclosureId(child));
         enclo.add(child);
         enclo.setVisible(enclosureVisible);
