@@ -90,7 +90,6 @@ public class FieldsRepeater extends MarkupContainer {
 
     @Override
     public MarkupStream getAssociatedMarkupStream(boolean throwException) {
-
         if (generatedMarkup == null) {
             StringBuilder builder = new StringBuilder();
 
