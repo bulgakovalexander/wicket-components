@@ -66,7 +66,7 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     public Enclosure add(Component child, boolean enclosureVisible) {
-        Enclosure enclo = new Enclosure(getEnclosureId(child));
+        Enclosure enclo = newEnclosure(child);
         enclo.add(child);
         enclo.setVisible(enclosureVisible);
         if (simplifyMarkupId) {
@@ -78,6 +78,10 @@ public class FieldsRepeater extends MarkupContainer {
         }
         super.add(enclo);
         return enclo;
+    }
+
+    protected Enclosure newEnclosure(Component child) {
+        return new Enclosure(getEnclosureId(child));
     }
 
     public void setChildTagBuilder(ChildTagBuilder childTagBuilder) {
