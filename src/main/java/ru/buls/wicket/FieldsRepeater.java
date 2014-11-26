@@ -6,6 +6,7 @@ import org.apache.wicket.markup.*;
 import org.apache.wicket.markup.html.WebMarkupContainerWithAssociatedMarkup;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.*;
+import org.apache.wicket.markup.html.link.AbstractLink;
 import org.apache.wicket.markup.parser.XmlTag;
 import org.apache.wicket.markup.parser.filter.WicketTagIdentifier;
 import org.apache.wicket.model.IModel;
@@ -350,10 +351,13 @@ public class FieldsRepeater extends MarkupContainer {
             else if (child instanceof WebMarkupContainerWithAssociatedMarkup
                     || child instanceof FormComponentPanel
                     || child instanceof FieldsRepeater
-                    || child instanceof Label)
+                    || child instanceof Label
+                    || child instanceof AbstractLink)
                 tagName = "span";
             else {
-                throw new UnsupportedOperationException("does not support child element " + child);
+                if (child != null) throw new UnsupportedOperationException("does not support child element "
+                        + child.getClass());
+                else throw new NullPointerException("child cannot be null");
             }
             return tagName;
         }
