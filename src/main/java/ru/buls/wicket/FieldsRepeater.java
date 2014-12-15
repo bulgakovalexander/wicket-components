@@ -55,7 +55,7 @@ public class FieldsRepeater extends MarkupContainer {
     protected ChildTagBuilder childTagBuilder = new ChildTagBuilder();
     protected boolean simplifyMarkupId = true;
 
-    private String generatedMarkup;
+    //    private String generatedMarkup;
     private boolean supportWicketFor = true;
 
     public FieldsRepeater(String id) {
@@ -95,27 +95,10 @@ public class FieldsRepeater extends MarkupContainer {
 
     @Override
     public MarkupStream getAssociatedMarkupStream(boolean throwException) {
-        if (generatedMarkup == null) {
-            StringBuilder builder = new StringBuilder();
-
-            MarkupStream markupStream = getMarkupStream();
-
-            int startIndex = markupStream.getCurrentIndex();
-
-            for (int i = 0; i < size(); ++i) {
-                markupStream.setCurrentIndex(startIndex);
-                Component component = get(i);
-                Markup markup = generate((Enclosure) component, markupStream);
-                toBuilder(markup, builder);
-            }
-
-            generatedMarkup = builder.toString();
-        }
+        String generatedMarkup = generateMarkup();
         Markup markup;
         try {
-            Markup parse = new MarkupParser(generatedMarkup).parse();
-            markup = parse;
-            //copy(parse, markup = new Markup(NO_MARKUP_RESOURCE_DATA));
+            markup = new MarkupParser(generatedMarkup).parse();
         } catch (IOException e) {
             logger.error("error on parsing generated markup : " + generatedMarkup, e);
             throw new RuntimeException(e);
@@ -124,6 +107,23 @@ public class FieldsRepeater extends MarkupContainer {
             throw new RuntimeException(e);
         }
         return new MarkupStream(markup);
+    }
+
+    protected String generateMarkup() {
+        StringBuilder builder = new StringBuilder();
+
+        MarkupStream markupStream = getMarkupStream();
+
+        int startIndex = markupStream.getCurrentIndex();
+
+        for (int i = 0; i < size(); ++i) {
+            markupStream.setCurrentIndex(startIndex);
+            Component component = get(i);
+            Markup markup = generate((Enclosure) component, markupStream);
+            toBuilder(markup, builder);
+        }
+
+        return builder.toString();
     }
 
     protected void toBuilder(Markup markup, StringBuilder builder) {
