@@ -57,6 +57,7 @@ public class FieldsRepeater extends MarkupContainer {
 
     //    private String generatedMarkup;
     private boolean supportWicketFor = true;
+    private int startMarkupIndex = -1;
 
     public FieldsRepeater(String id) {
         super(id);
@@ -113,17 +114,25 @@ public class FieldsRepeater extends MarkupContainer {
         StringBuilder builder = new StringBuilder();
 
         MarkupStream markupStream = getMarkupStream();
+        int index = markupStream.getCurrentIndex();
+        try {
+            //запоминаем индекс в маркапе при старте отрисовки
+            //возвращаем при повторной перерисовке
+            if (startMarkupIndex == -1)
+                startMarkupIndex = index;
+            else markupStream.setCurrentIndex(startMarkupIndex);
 
-        int startIndex = markupStream.getCurrentIndex();
+            for (int i = 0; i < size(); ++i) {
+                markupStream.setCurrentIndex(startMarkupIndex);
+                Component component = get(i);
+                Markup markup = generate((Enclosure) component, markupStream);
+                toBuilder(markup, builder);
+            }
 
-        for (int i = 0; i < size(); ++i) {
-            markupStream.setCurrentIndex(startIndex);
-            Component component = get(i);
-            Markup markup = generate((Enclosure) component, markupStream);
-            toBuilder(markup, builder);
+            return builder.toString();
+        } finally {
+            if (index != startMarkupIndex) markupStream.setCurrentIndex(index);
         }
-
-        return builder.toString();
     }
 
     protected void toBuilder(Markup markup, StringBuilder builder) {
