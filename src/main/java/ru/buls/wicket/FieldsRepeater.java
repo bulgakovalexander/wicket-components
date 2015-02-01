@@ -68,9 +68,23 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     public Enclosure add(Component child, boolean enclosureVisible) {
-        Enclosure enclo = newEnclosure(child);
-        enclo.add(child);
+        if (child instanceof Enclosure) return add((Enclosure) child, enclosureVisible);
+        else return add(newEnclosure(child), enclosureVisible);
+    }
+
+    public Enclosure add(Enclosure enclo, boolean enclosureVisible) {
         enclo.setVisible(enclosureVisible);
+        super.add(enclo);
+        return enclo;
+    }
+
+    public Enclosure add(Enclosure enclo) {
+        return add(enclo, true);
+    }
+
+    public Enclosure newEnclosure(Component child) {
+        Enclosure enclo = new Enclosure(getEnclosureId(child));
+        enclo.add(child);
         if (simplifyMarkupId) {
             enclo.setOutputMarkupId(getOutputMarkupId());
             enclo.setOutputMarkupPlaceholderTag(getOutputMarkupPlaceholderTag());
@@ -78,12 +92,7 @@ public class FieldsRepeater extends MarkupContainer {
             child.setMarkupId(child.getId());
             enclo.setMarkupId(enclo.getId());
         }
-        super.add(enclo);
         return enclo;
-    }
-
-    protected Enclosure newEnclosure(Component child) {
-        return new Enclosure(getEnclosureId(child));
     }
 
     public void setChildTagBuilder(ChildTagBuilder childTagBuilder) {
