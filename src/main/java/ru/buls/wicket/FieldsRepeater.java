@@ -64,7 +64,7 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     public Enclosure add(Component child) {
-        return add(child, true);
+        return add(child, child.isVisible());
     }
 
     public Enclosure add(Component child, boolean enclosureVisible) {
