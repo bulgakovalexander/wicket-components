@@ -6,6 +6,7 @@ import org.apache.wicket.markup.*;
 import org.apache.wicket.markup.html.WebMarkupContainerWithAssociatedMarkup;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.*;
+import org.apache.wicket.markup.html.link.AbstractLink;
 import org.apache.wicket.markup.parser.XmlTag;
 import org.apache.wicket.markup.parser.filter.WicketTagIdentifier;
 import org.apache.wicket.model.IModel;
@@ -54,21 +55,36 @@ public class FieldsRepeater extends MarkupContainer {
     protected ChildTagBuilder childTagBuilder = new ChildTagBuilder();
     protected boolean simplifyMarkupId = true;
 
-    private String generatedMarkup;
+    //    private String generatedMarkup;
     private boolean supportWicketFor = true;
+    private int startMarkupIndex = -1;
 
     public FieldsRepeater(String id) {
         super(id);
     }
 
     public Enclosure add(Component child) {
-        return add(child, true);
+        return add(child, child.isVisible());
     }
 
     public Enclosure add(Component child, boolean enclosureVisible) {
-        Enclosure enclo = newEnclosure(child);
-        enclo.add(child);
+        if (child instanceof Enclosure) return add((Enclosure) child, enclosureVisible);
+        else return add(newEnclosure(child), enclosureVisible);
+    }
+
+    public Enclosure add(Enclosure enclo, boolean enclosureVisible) {
         enclo.setVisible(enclosureVisible);
+        super.add(enclo);
+        return enclo;
+    }
+
+    public Enclosure add(Enclosure enclo) {
+        return add(enclo, true);
+    }
+
+    public Enclosure newEnclosure(Component child) {
+        Enclosure enclo = new Enclosure(getEnclosureId(child));
+        enclo.add(child);
         if (simplifyMarkupId) {
             enclo.setOutputMarkupId(getOutputMarkupId());
             enclo.setOutputMarkupPlaceholderTag(getOutputMarkupPlaceholderTag());
@@ -76,12 +92,7 @@ public class FieldsRepeater extends MarkupContainer {
             child.setMarkupId(child.getId());
             enclo.setMarkupId(enclo.getId());
         }
-        super.add(enclo);
         return enclo;
-    }
-
-    protected Enclosure newEnclosure(Component child) {
-        return new Enclosure(getEnclosureId(child));
     }
 
     public void setChildTagBuilder(ChildTagBuilder childTagBuilder) {
@@ -94,27 +105,10 @@ public class FieldsRepeater extends MarkupContainer {
 
     @Override
     public MarkupStream getAssociatedMarkupStream(boolean throwException) {
-        if (generatedMarkup == null) {
-            StringBuilder builder = new StringBuilder();
-
-            MarkupStream markupStream = getMarkupStream();
-
-            int startIndex = markupStream.getCurrentIndex();
-
-            for (int i = 0; i < size(); ++i) {
-                markupStream.setCurrentIndex(startIndex);
-                Component component = get(i);
-                Markup markup = generate((Enclosure) component, markupStream);
-                toBuilder(markup, builder);
-            }
-
-            generatedMarkup = builder.toString();
-        }
+        String generatedMarkup = generateMarkup();
         Markup markup;
         try {
-            Markup parse = new MarkupParser(generatedMarkup).parse();
-            markup = parse;
-            //copy(parse, markup = new Markup(NO_MARKUP_RESOURCE_DATA));
+            markup = new MarkupParser(generatedMarkup).parse();
         } catch (IOException e) {
             logger.error("error on parsing generated markup : " + generatedMarkup, e);
             throw new RuntimeException(e);
@@ -123,6 +117,31 @@ public class FieldsRepeater extends MarkupContainer {
             throw new RuntimeException(e);
         }
         return new MarkupStream(markup);
+    }
+
+    protected String generateMarkup() {
+        StringBuilder builder = new StringBuilder();
+
+        MarkupStream markupStream = getMarkupStream();
+        int index = markupStream.getCurrentIndex();
+        try {
+            //запоминаем индекс в маркапе при старте отрисовки
+            //возвращаем при повторной перерисовке
+            if (startMarkupIndex == -1)
+                startMarkupIndex = index;
+            else markupStream.setCurrentIndex(startMarkupIndex);
+
+            for (int i = 0; i < size(); ++i) {
+                markupStream.setCurrentIndex(startMarkupIndex);
+                Component component = get(i);
+                Markup markup = generate((Enclosure) component, markupStream);
+                toBuilder(markup, builder);
+            }
+
+            return builder.toString();
+        } finally {
+            if (index != startMarkupIndex) markupStream.setCurrentIndex(index);
+        }
     }
 
     protected void toBuilder(Markup markup, StringBuilder builder) {
@@ -350,10 +369,13 @@ public class FieldsRepeater extends MarkupContainer {
             else if (child instanceof WebMarkupContainerWithAssociatedMarkup
                     || child instanceof FormComponentPanel
                     || child instanceof FieldsRepeater
-                    || child instanceof Label)
+                    || child instanceof Label
+                    || child instanceof AbstractLink)
                 tagName = "span";
             else {
-                throw new UnsupportedOperationException("does not support child element " + child);
+                if (child != null) throw new UnsupportedOperationException("does not support child element "
+                        + child.getClass());
+                else throw new NullPointerException("child cannot be null");
             }
             return tagName;
         }
