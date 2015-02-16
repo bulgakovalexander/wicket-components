@@ -4,6 +4,7 @@ import org.apache.wicket.Component;
 import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.MarkupStream;
 import org.apache.wicket.markup.html.form.FormComponent;
+import org.apache.wicket.markup.parser.XmlTag;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.IObjectClassAwareModel;
 import org.apache.wicket.util.convert.ConversionException;
@@ -91,6 +92,9 @@ public class FdcLabel<T> extends FormComponent<T> {
             }
         }
 
+        super.onComponentTag(tag);
+        // always transform the tag to <span></span> so even labels defined as <span/> render
+        tag.setType(XmlTag.OPEN);
         tag.put("value", getValue());
 
         // Default handling for component tag
@@ -109,8 +113,11 @@ public class FdcLabel<T> extends FormComponent<T> {
     @Override
     protected final void onComponentTagBody(final MarkupStream markupStream, final ComponentTag openTag)
     {
+//        checkComponentTag(openTag, "span");
+//        replaceComponentTagBody(markupStream, openTag, getValue());
         checkComponentTag(openTag, "span");
-        replaceComponentTagBody(markupStream, openTag, getValue());
+        final CharSequence body = Strings.toMultilineMarkup(getDefaultModelObjectAsString());
+        replaceComponentTagBody(markupStream, openTag, body);
     }
 
     /**
