@@ -59,6 +59,8 @@ public class FieldsRepeater extends MarkupContainer {
     private boolean supportWicketFor = true;
     private int startMarkupIndex = -1;
 
+    public boolean inheritHide = false;
+
     public FieldsRepeater(String id) {
         super(id);
     }
@@ -93,6 +95,21 @@ public class FieldsRepeater extends MarkupContainer {
             enclo.setMarkupId(enclo.getId());
         }
         return enclo;
+    }
+
+    @Override
+    protected void onBeforeRender() {
+        super.onBeforeRender();
+
+        if (inheritHide)
+            visitChildren(Enclosure.class, new IVisitor<Enclosure>() {
+                @Override
+                public Object component(Enclosure component) {
+                    Component child = component.get();
+                    if (!child.isVisible()) component.setVisible(false);
+                    return CONTINUE_TRAVERSAL;
+                }
+            });
     }
 
     public void setChildTagBuilder(ChildTagBuilder childTagBuilder) {
@@ -406,6 +423,11 @@ public class FieldsRepeater extends MarkupContainer {
 
         public Enclosure(String id) {
             super(id, new Model());
+        }
+
+        @Override
+        protected void onBeforeRender() {
+            super.onBeforeRender();
         }
 
         @Override
