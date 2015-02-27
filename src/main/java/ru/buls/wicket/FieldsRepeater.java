@@ -75,7 +75,7 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     public Enclosure add(Enclosure enclo, boolean enclosureVisible) {
-        enclo.setVisible(enclosureVisible);
+        enclo.setVisible(enclo.isVisible() && enclosureVisible);
         super.add(enclo);
         return enclo;
     }
