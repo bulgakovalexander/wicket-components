@@ -244,7 +244,7 @@ public class FdcLabel<T> extends FormComponent<T> {
      *
      * @param flag
      *            the value to set this flag.
-     * @return this
+     * @return this3
      */
     public final FormComponent<T> setConvertEmptyInputStringToNull(boolean flag)
     {
