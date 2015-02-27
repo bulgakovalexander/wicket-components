@@ -55,7 +55,7 @@ public class FieldsRepeater extends MarkupContainer {
     protected ChildTagBuilder childTagBuilder = new ChildTagBuilder();
     protected boolean simplifyMarkupId = true;
 
-    //    private String generatedMarkup;
+    private String generatedMarkup;
     private boolean supportWicketFor = true;
     private int startMarkupIndex = -1;
 
@@ -122,7 +122,7 @@ public class FieldsRepeater extends MarkupContainer {
 
     @Override
     public MarkupStream getAssociatedMarkupStream(boolean throwException) {
-        String generatedMarkup = generateMarkup();
+        if (generatedMarkup == null) generatedMarkup = generateMarkup();
         Markup markup;
         try {
             markup = new MarkupParser(generatedMarkup).parse();
@@ -157,7 +157,7 @@ public class FieldsRepeater extends MarkupContainer {
 
             return builder.toString();
         } finally {
-            if (index != startMarkupIndex) markupStream.setCurrentIndex(index);
+            if (index != startMarkupIndex && markupStream != null) markupStream.setCurrentIndex(index);
         }
     }
 
