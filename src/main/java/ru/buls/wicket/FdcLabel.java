@@ -274,4 +274,9 @@ public class FdcLabel<T> extends FormComponent<T> {
     {
         return true;
     }
+
+    @Override
+    public void updateModel() {
+        //не должно апдейтить модель, компонент readonly
+    }
 }
