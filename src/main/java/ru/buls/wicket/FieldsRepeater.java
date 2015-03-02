@@ -59,7 +59,11 @@ public class FieldsRepeater extends MarkupContainer {
     private boolean supportWicketFor = true;
     private int startMarkupIndex = -1;
 
-    public boolean inheritHide = false;
+    /**
+     * На случай, когда нет возможности проставить setVisible(false) в Enclosure, можно проставить в child,
+     * при отрисовке филдов сокрытие будет применено в Enclosure
+     */
+    public boolean inheritVisibility = false;
 
     public FieldsRepeater(String id) {
         super(id);
@@ -75,7 +79,7 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     public Enclosure add(Enclosure enclo, boolean enclosureVisible) {
-        enclo.setVisible(enclosureVisible);
+        enclo.setVisible(enclo.isVisible() && enclosureVisible);
         super.add(enclo);
         return enclo;
     }
@@ -101,15 +105,19 @@ public class FieldsRepeater extends MarkupContainer {
     protected void onBeforeRender() {
         super.onBeforeRender();
 
-        if (inheritHide)
+        if (inheritVisibility)
             visitChildren(Enclosure.class, new IVisitor<Enclosure>() {
                 @Override
                 public Object component(Enclosure component) {
-                    Component child = component.get();
-                    if (!child.isVisible()) component.setVisible(false);
+                    initVisibility(component);
                     return CONTINUE_TRAVERSAL;
                 }
             });
+    }
+
+    protected void initVisibility(Enclosure component) {
+        Component child = component.get();
+        component.setVisible(child.isVisible());
     }
 
     public void setChildTagBuilder(ChildTagBuilder childTagBuilder) {
@@ -428,6 +436,12 @@ public class FieldsRepeater extends MarkupContainer {
         @Override
         protected void onBeforeRender() {
             super.onBeforeRender();
+        }
+
+        @Override
+        protected void onConfigure() {
+            super.onConfigure();
+            if (inheritVisibility) initVisibility(this);
         }
 
         @Override
