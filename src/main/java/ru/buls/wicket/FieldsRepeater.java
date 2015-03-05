@@ -82,7 +82,7 @@ public class FieldsRepeater extends MarkupContainer {
         if (inheritVisibility) {
             Component child = enclo.get();
             if (child != null) {
-                child.setVisible(enclosureVisible);
+                child.setVisible(child.isVisible() && enclosureVisible);
             }
         } else
             enclo.setVisible(enclo.isVisible() && enclosureVisible);
