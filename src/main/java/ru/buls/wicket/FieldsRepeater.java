@@ -137,16 +137,7 @@ public class FieldsRepeater extends MarkupContainer {
     @Override
     public MarkupStream getAssociatedMarkupStream(boolean throwException) {
         if (generatedMarkup == null) generatedMarkup = generateMarkup();
-        Markup markup;
-        try {
-            markup = new MarkupParser(generatedMarkup).parse();
-        } catch (IOException e) {
-            logger.error("error on parsing generated markup : " + generatedMarkup, e);
-            throw new RuntimeException(e);
-        } catch (ResourceStreamNotFoundException e) {
-            logger.error("error on parsing generated markup : " + generatedMarkup, e);
-            throw new RuntimeException(e);
-        }
+        Markup markup = parse(generatedMarkup);
         return new MarkupStream(markup);
     }
 
@@ -189,9 +180,8 @@ public class FieldsRepeater extends MarkupContainer {
         assert startTag != null;
         assert !startTag.isClose();
 
-        openEnclosure(markup, startTag, enclosure);
+
         int endIndex = child(markupStream, markup, startTag, enclosure);
-        closeEnclosure(endIndex, markup, markupStream);
 
 //        if (endIndex > 0) markupStream.setCurrentIndex(endIndex);
 //        if (markupStream.hasMore()) markupStream.next();
@@ -204,21 +194,35 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     private int child(MarkupStream markupStream, Markup markup, ComponentTag baseTag, Enclosure enclosure) {
+
+        Markup baseEnclosureMarkup = new Markup(NO_MARKUP_RESOURCE_DATA);
+
         int endIndex = -1;
         MarkupElement next;
-        ComponentTag startTag = (ComponentTag) markupStream.get();
+        ComponentTag startTag = markupStream.getTag();
+        openEnclosure(markup, startTag, enclosure);
+        openEnclosure(baseEnclosureMarkup, startTag, enclosure);
         while (null != (next = markupStream.next())) {
             if (next instanceof ComponentTag) {
                 ComponentTag cnext = (ComponentTag) next;
                 ComponentTag ot = cnext.getOpenTag();
                 if (ot != null && ot.equals(startTag)) {
                     endIndex = markupStream.getCurrentIndex();
+                    closeEnclosure(endIndex, markup, markupStream);
+                    closeEnclosure(endIndex, baseEnclosureMarkup, markupStream);
                     break;
                 }
                 assert ot == null || !baseTag.getId().equals(ot.getId()) : "markup overflow";
             }
-            copy(createMarkupFor(next, enclosure), markup);
+            //Markup elemMarkup = createMarkupFor(next, enclosure);
+            //copy(elemMarkup, markup);
+            baseEnclosureMarkup.addMarkupElement(next);
         }
+
+        StringBuilder builder = new StringBuilder();
+        toBuilder(baseEnclosureMarkup, builder);
+        enclosure.baseMarkup = builder.toString();
+
         return endIndex;
     }
 
@@ -291,7 +295,7 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     private Markup createMarkupFor(MarkupElement tag, Enclosure enclosure) {
-        Component child = enclosure.get(0);
+        Component child = enclosure.get();
         Markup childMarkup;
         if (tag instanceof WicketTag) {
             WicketTag wtag = (WicketTag) tag;
@@ -434,6 +438,7 @@ public class FieldsRepeater extends MarkupContainer {
 
         IModel label;
         boolean showLabel = true;
+        public String baseMarkup;
 
         public Enclosure(String id) {
             super(id, new Model());
@@ -451,8 +456,48 @@ public class FieldsRepeater extends MarkupContainer {
         }
 
         @Override
+        public MarkupStream getAssociatedMarkupStream(boolean throwException) {
+            String markup1 = baseMarkup;
+            assert markup1 != null;
+            Markup _baseMarkup = parse(markup1);
+
+            Markup generatedMarkup = new Markup(NO_MARKUP_RESOURCE_DATA);
+            MarkupStream markupStream = new MarkupStream(_baseMarkup);
+            MarkupElement next;
+            ComponentTag startTag = markupStream.getTag();
+            generatedMarkup.addMarkupElement(startTag);
+            while (null != (next = markupStream.next())) {
+                if (next instanceof ComponentTag) {
+                    ComponentTag cnext = (ComponentTag) next;
+                    ComponentTag ot = cnext.getOpenTag();
+                    if (ot != null && ot.equals(startTag)) {
+                        generatedMarkup.addMarkupElement(cnext);
+                        break;
+                    }
+                    assert ot == null : "markup overflow";
+                }
+                Markup elemMarkup = createMarkupFor(next, this);
+                copy(elemMarkup, generatedMarkup);
+            }
+
+            StringBuilder builder = new StringBuilder();
+            toBuilder(generatedMarkup, builder);
+
+            return new MarkupStream(parse(builder.toString()));
+        }
+
+        @Override
         protected void onRender(MarkupStream markupStream) {
-            super.onRender(markupStream);
+            MarkupStream stream = getAssociatedMarkupStream(false);
+            super.onRender(stream);
+            MarkupElement startTag = markupStream.get();
+            MarkupElement next;
+            while (null != (next = markupStream.next())) {
+                if (next.closes(startTag)) {
+                    next = markupStream.next();
+                    break;
+                }
+            }
         }
 
         public Component get() {
@@ -475,5 +520,19 @@ public class FieldsRepeater extends MarkupContainer {
         public void setShowLabel(boolean showLabel) {
             this.showLabel = showLabel;
         }
+    }
+
+    protected Markup parse(String markup) {
+        Markup _baseMarkup;
+        try {
+            _baseMarkup = new MarkupParser(markup).parse();
+        } catch (IOException e) {
+            logger.error("error on parsing generated markup : " + markup, e);
+            throw new RuntimeException(e);
+        } catch (ResourceStreamNotFoundException e) {
+            logger.error("error on parsing generated markup : " + markup, e);
+            throw new RuntimeException(e);
+        }
+        return _baseMarkup;
     }
 }
