@@ -233,7 +233,6 @@ public class FieldsRepeater extends MarkupContainer {
         markup.addMarkupElement(tag);
     }
 
-
     @Override
     public boolean hasAssociatedMarkup() {
         return true;
@@ -447,6 +446,11 @@ public class FieldsRepeater extends MarkupContainer {
         @Override
         protected void onBeforeRender() {
             super.onBeforeRender();
+        }
+
+        @Override
+        public boolean hasAssociatedMarkup() {
+            return true;
         }
 
         @Override
