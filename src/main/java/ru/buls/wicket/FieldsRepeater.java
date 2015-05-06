@@ -212,7 +212,7 @@ public class FieldsRepeater extends MarkupContainer {
                     closeEnclosure(endIndex, baseEnclosureMarkup, markupStream);
                     break;
                 }
-                assert ot == null || !baseTag.getId().equals(ot.getId()) : "markup overflow";
+                //assert ot == null || !baseTag.getId().equals(ot.getId()) : "markup overflow";
             }
             //Markup elemMarkup = createMarkupFor(next, enclosure);
             //copy(elemMarkup, markup);
@@ -474,7 +474,7 @@ public class FieldsRepeater extends MarkupContainer {
                         generatedMarkup.addMarkupElement(cnext);
                         break;
                     }
-                    assert ot == null : "markup overflow";
+                    //assert ot == null || !startTag.getId().equals(ot.getId()) : "markup overflow";
                 }
                 Markup elemMarkup = createMarkupFor(next, this);
                 copy(elemMarkup, generatedMarkup);
