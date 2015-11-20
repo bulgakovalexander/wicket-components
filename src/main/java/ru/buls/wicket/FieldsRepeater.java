@@ -95,6 +95,8 @@ public class FieldsRepeater extends MarkupContainer {
     }
 
     public Enclosure newEnclosure(Component child) {
+        if(child.getParent() != null) throw new IllegalArgumentException(
+                "cannot add child '"+ child.getId() +"' because it already has parent");
         Enclosure enclo = new Enclosure(getEnclosureId(child));
         enclo.add(child);
         if (simplifyMarkupId) {
