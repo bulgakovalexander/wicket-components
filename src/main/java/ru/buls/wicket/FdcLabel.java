@@ -227,8 +227,8 @@ public class FdcLabel<T> extends FormComponent<T> {
         {
             Class<?> objectClass = ((IObjectClassAwareModel<?>)model).getObjectClass();
             if (objectClass == null)
-            {
-                log.warn("Couldn't resolve model type of " + model + " for " + this +
+            {//нужно корректно отобразитьб объект из модели
+                    log.warn("Couldn't resolve model type of " + model + " for " + this +
                         ", please set the type yourself.");
             }
             return objectClass;
