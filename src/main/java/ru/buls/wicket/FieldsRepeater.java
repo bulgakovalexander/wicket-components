@@ -401,12 +401,13 @@ public class FieldsRepeater extends MarkupContainer {
             else if (child instanceof Button) tagName = "input";
             else if (child instanceof TextArea) tagName = "textarea";
             else if (child instanceof AbstractChoice) tagName = "select";
+            else if (child instanceof AbstractLink) tagName = "a";
             else if (child instanceof FdcLabel) tagName = "span";
             else if (child instanceof WebMarkupContainerWithAssociatedMarkup
                     || child instanceof FormComponentPanel
                     || child instanceof FieldsRepeater
                     || child instanceof Label
-                    || child instanceof AbstractLink)
+                    )
                 tagName = "span";
             else {
                 if (child != null) throw new UnsupportedOperationException("does not support child element "
