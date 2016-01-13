@@ -428,6 +428,8 @@ public class FieldsRepeater extends MarkupContainer {
             IValueMap attributes = open.getAttributes();
             String type = null;
             if (child instanceof CheckBox) type = "checkbox";
+            else if (child instanceof HiddenField) type = "hidden";
+            else if (child instanceof PasswordTextField) type = "password";
             else if (child instanceof TextField) type = "text";
             else if (child instanceof Button) type = "button";
             if (type != null) attributes.put("type", type);
